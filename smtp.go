@@ -4,16 +4,16 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/abdfnx/gosh"
-	_ "github.com/abdfnx/gosh"
 	. "github.com/klauspost/cpuid/v2"
 	"github.com/rdegges/go-ipify"
 	"github.com/ricochet2200/go-disk-usage/du"
-	_ "github.com/ricochet2200/go-disk-usage/du"
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
 	"gopkg.in/mail.v2"
 	"log"
+	"net/http"
 	"os"
+	"os/exec"
 	"runtime"
 	"strings"
 )
@@ -25,6 +25,52 @@ const (
 	GB  = 1024 * MB
 	GHz = GB
 )
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+
+func showDraft(email string) {
+	f, err := os.Create("./dependencies/index.html")
+	check(err)
+	defer f.Close()
+
+	email = strings.Replace(email, "cid:", "", -1)
+	_, err = f.WriteString(email)
+	check(err)
+	f.Sync()
+
+	fs := http.FileServer(http.Dir("./dependencies"))
+	http.Handle("/", fs)
+
+	//multithreading to keep the server up but finish the program
+	go func() {
+		err = http.ListenAndServe(":3000", nil)
+	}()
+
+	err = exec.Command("rundll32", "url.dll,FileProtocolHandler", "http://localhost:3000").Start()
+}
+
+func sendEmail(m mail.Message, email string, usrname string, passwd string) {
+	m.SetBody("text/html", email)
+
+	d := mail.NewDialer("smtp.office365.com", 587, usrname, passwd)
+
+	if err := d.DialAndSend(&m); err != nil {
+
+		panic(err)
+
+	}
+}
+
+func cleanup() {
+	e := os.Remove("./dependencies/index.html")
+	if e != nil {
+		log.Fatal(e)
+	}
+}
 
 func main() {
 
@@ -39,18 +85,14 @@ func main() {
 
 	readFile.Close()
 
-	fmt.Print(runtime.GOOS + "\n")
 	vmem, err := mem.VirtualMemory()
-	fmt.Printf("Total: %v, Free:%v, UsedPercent:%f%%\n", vmem.Total, vmem.Free, vmem.UsedPercent)
-	fmt.Printf("Available Memory: %.2f GB\n", float64(vmem.Free)/float64(GB))
+
 	freeMem := fmt.Sprintf("%.2f GB", float64(vmem.Free)/float64(GB))
 	totalMem := fmt.Sprintf("%.2f GB", float64(vmem.Total)/float64(GB))
 
-	fmt.Println("\nName:", CPU.BrandName)
-	fmt.Printf("Speed: %.2f GHZ\n", float64(CPU.Hz)/float64(GHz))
 	cpuSpeed := fmt.Sprintf("%.2f GHz\n", float64(CPU.Hz)/float64(GHz))
 	hostInfo, err := host.Info()
-	fmt.Printf("Platform: %v\n", hostInfo.Platform)
+
 	err, out, errout := gosh.PowershellOutput(`Get-Service | Where-Object {$_.Status -eq "Running"} | Select Name`)
 
 	if err != nil {
@@ -58,19 +100,13 @@ func main() {
 		fmt.Print(errout)
 	}
 
-	//fmt.Print(out)
-	//fmt.Println(strings.Replace(out, string('\n'), "<br>", -1))
-	fmt.Println(strings.ReplaceAll(out, "\r\n", "<br>"))
-
 	usage := du.NewDiskUsage("C:\\")
-	fmt.Printf("Disk Usage %.2f\n", float64(usage.Available())/float64(GB))
 	usageString := fmt.Sprintf("%.2f\n", float64(usage.Available())/float64(GB))
-	fmt.Print(usageString)
+
 	ip, err := ipify.GetIp()
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	fmt.Println(ip)
 
 	m := mail.NewMessage()
 
@@ -82,7 +118,7 @@ func main() {
 
 	fileBytes, err := os.ReadFile("email.html")
 	fileString := string(fileBytes)
-	m.Embed("images/logo-no-background.png")
+	m.Embed("dependencies/logo-no-background.png")
 	fileString = strings.Replace(fileString, "[public-ip]", ip, -1)
 	fileString = strings.Replace(fileString, "[mem-info]", freeMem, -1)
 	fileString = strings.Replace(fileString, "[disk-space]", usageString, -1)
@@ -92,14 +128,27 @@ func main() {
 	fileString = strings.Replace(fileString, "[CPU]", CPU.BrandName, -1)
 	fileString = strings.Replace(fileString, "[CPU-Speed]", cpuSpeed, -1)
 	fileString = strings.Replace(fileString, "[services]", strings.ReplaceAll(out, "\r\n", "<br>"), -1)
-	m.SetBody("text/html", fileString)
 
-	d := mail.NewDialer("smtp.office365.com", 587, fileLines[1], fileLines[2])
-
-	if err := d.DialAndSend(m); err != nil {
-
-		panic(err)
-
+	//Checking if the user would like to see a draft of their
+	fmt.Println("Would you like to see a draft (Y,N):")
+	var response string
+	fmt.Scanln(&response)
+	if response == "Y" {
+		showDraft(fileString)
 	}
+
+	//Checking if I would like to send the email
+	fmt.Println("Would you like to send the email (Y,N):")
+	var response2 string
+	fmt.Scanln(&response2)
+	if response2 == "Y" {
+		fmt.Println("Sending email")
+		sendEmail(*m, fileString, fileLines[1], fileLines[2])
+	} else {
+		fmt.Println("Quitting the Program...")
+		cleanup()
+		os.Exit(0)
+	}
+	cleanup()
 
 }
