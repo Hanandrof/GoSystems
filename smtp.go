@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"github.com/abdfnx/gosh"
 	. "github.com/klauspost/cpuid/v2"
@@ -66,31 +65,20 @@ func sendEmail(m mail.Message, email string, usrname string, passwd string) {
 }
 
 func cleanup() {
-	e := os.Remove("./dependencies/index.html")
-	if e != nil {
-		log.Fatal(e)
-	}
+	os.Remove("./dependencies/index.html")
 }
 
 func main() {
 
-	readFile, err := os.Open("config")
-	fileScanner := bufio.NewScanner(readFile)
-	fileScanner.Split(bufio.ScanLines)
-	var fileLines []string
-
-	for fileScanner.Scan() {
-		fileLines = append(fileLines, fileScanner.Text())
-	}
-
-	readFile.Close()
-
+	var to string = os.Getenv("SMTP_TO")
+	var from string = os.Getenv("SMTP_FROM")
+	var pass string = os.Getenv("SMTP_PASS")
 	vmem, err := mem.VirtualMemory()
 
 	freeMem := fmt.Sprintf("%.2f GB", float64(vmem.Free)/float64(GB))
 	totalMem := fmt.Sprintf("%.2f GB", float64(vmem.Total)/float64(GB))
 
-	cpuSpeed := fmt.Sprintf("%.2f GHz\n", float64(CPU.Hz)/float64(GHz))
+	cpuSpeed := fmt.Sprintf("%.2f GHz", float64(CPU.Hz)/float64(GHz))
 	hostInfo, err := host.Info()
 
 	err, out, errout := gosh.PowershellOutput(`Get-Service | Where-Object {$_.Status -eq "Running"} | Select Name`)
@@ -101,7 +89,7 @@ func main() {
 	}
 
 	usage := du.NewDiskUsage("C:\\")
-	usageString := fmt.Sprintf("%.2f\n", float64(usage.Available())/float64(GB))
+	usageString := fmt.Sprintf("%.2f GB", float64(usage.Available())/float64(GB))
 
 	ip, err := ipify.GetIp()
 	if err != nil {
@@ -110,9 +98,9 @@ func main() {
 
 	m := mail.NewMessage()
 
-	m.SetHeader("From", fileLines[1])
+	m.SetHeader("From", from)
 
-	m.SetHeader("To", fileLines[0])
+	m.SetHeader("To", to)
 
 	m.SetHeader("Subject", "Your System Information")
 
@@ -143,7 +131,7 @@ func main() {
 	fmt.Scanln(&response2)
 	if response2 == "Y" {
 		fmt.Println("Sending email")
-		sendEmail(*m, fileString, fileLines[1], fileLines[2])
+		sendEmail(*m, fileString, from, pass)
 	} else {
 		fmt.Println("Quitting the Program...")
 		cleanup()
