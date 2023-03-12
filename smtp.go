@@ -25,6 +25,7 @@ const (
 	GHz = GB
 )
 
+// This checks the error given from running a program
 func check(e error) {
 	if e != nil {
 		panic(e)
@@ -70,32 +71,39 @@ func cleanup() {
 
 func main() {
 
+	//Setting the credentials
 	var to string = os.Getenv("SMTP_TO")
 	var from string = os.Getenv("SMTP_FROM")
 	var pass string = os.Getenv("SMTP_PASS")
-	vmem, err := mem.VirtualMemory()
 
+	//Getting memory variables
+	vmem, err := mem.VirtualMemory()
+	check(err)
 	freeMem := fmt.Sprintf("%.2f GB", float64(vmem.Free)/float64(GB))
 	totalMem := fmt.Sprintf("%.2f GB", float64(vmem.Total)/float64(GB))
 
+	//Getting CPU & Host Info
 	cpuSpeed := fmt.Sprintf("%.2f GHz", float64(CPU.Hz)/float64(GHz))
 	hostInfo, err := host.Info()
+	check(err)
 
+	//Getting services using powershell
 	err, out, errout := gosh.PowershellOutput(`Get-Service | Where-Object {$_.Status -eq "Running"} | Select Name`)
-
+	services := strings.ReplaceAll(out, "\r\n", "<br>")
 	if err != nil {
 		log.Printf("error: %v\n", err)
 		fmt.Print(errout)
 	}
 
+	//getting disk usage for the C drive
 	usage := du.NewDiskUsage("C:\\")
 	usageString := fmt.Sprintf("%.2f GB", float64(usage.Available())/float64(GB))
 
+	//Get the IP using the ipify API
 	ip, err := ipify.GetIp()
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+	check(err)
 
+	//Build the message
 	m := mail.NewMessage()
 
 	m.SetHeader("From", from)
@@ -104,6 +112,7 @@ func main() {
 
 	m.SetHeader("Subject", "Your System Information")
 
+	//Reading the email.html and using it as a template
 	fileBytes, err := os.ReadFile("email.html")
 	fileString := string(fileBytes)
 	m.Embed("dependencies/logo-no-background.png")
@@ -115,7 +124,7 @@ func main() {
 	fileString = strings.Replace(fileString, "[mem-total]", totalMem, -1)
 	fileString = strings.Replace(fileString, "[CPU]", CPU.BrandName, -1)
 	fileString = strings.Replace(fileString, "[CPU-Speed]", cpuSpeed, -1)
-	fileString = strings.Replace(fileString, "[services]", strings.ReplaceAll(out, "\r\n", "<br>"), -1)
+	fileString = strings.Replace(fileString, "[services]", services, -1)
 
 	//Checking if the user would like to see a draft of their
 	fmt.Println("Would you like to see a draft (Y,N):")
