@@ -23,6 +23,12 @@ This section is going to quickly talk about how everything works, it will be spl
 
 ### Powershell
 
-
+Powershell uses environmental variables and collects your information via simple input and output. It then executes the GO program and subsequently deletes the environment variables.
 
 ### GO
+
+Go uses different API's to collect your system information such as your IP address. It then also grabs other system information using different GO libraries all detailed in the go.mod requirements. It uses GoMail to send an email using any outlook email to any email.
+
+When viewing a draft of your email it will serve the html form on a localhost and open your default web browser. 
+
+It builds your html email using a template and then it uploads the contents of that file to GoMail, it then deletes the newly created file and keeps the template
