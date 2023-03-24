@@ -3,6 +3,11 @@
 This program is built to use SMTP to send an email with your system information using GoLang. It uses environment
 variables from a PowerShell script and accesses them when running a Go Program
 
+## Contact Information
+For any inquiries regarding this project please look at the below contact information
++ Alex Cochrane
++ alextcochrane@gmail.com
+
 ## Dependencies
 + Go
   + Make sure the installation is referenced in your **PATH** environment variable
