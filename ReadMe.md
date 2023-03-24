@@ -32,3 +32,12 @@ Go uses different API's to collect your system information such as your IP addre
 When viewing a draft of your email it will serve the html form on a localhost and open your default web browser. 
 
 It builds your html email using a template and then it uploads the contents of that file to GoMail, it then deletes the newly created file and keeps the template
+
+The required imports are listed below
+
++ "github.com/abdfnx/gosh"
++ "github.com/klauspost/cpuid/v2"
++ "github.com/rdegges/go-ipify"
++ "github.com/ricochet2200/go-disk-usage/du"
++ "github.com/shirou/gopsutil/v3/host"
++ "github.com/shirou/gopsutil/v3/mem"
